@@ -1,93 +1,136 @@
-这份配置文件（`fonts.conf`）非常经典且用心，它主要解决的是 Linux 系统下**中文排版、中日韩（CJK）异体字显示错误**，以及**强制替换网页或系统中常见但显示效果不佳的字体**的问题。
+# emoeem 的 Linux 字体配置 (fontconfig)
 
-以下是针对这份配置的详细介绍，以及测试其是否生效的完整命令指南。
+一套以 **MiSans** 为核心的 Linux fontconfig 配置：全局默认字体、**按语言自动切换中日韩（CJK）地区字形**、常见网页字体映射，以及适合高分屏的渲染参数。
 
----
+在 CachyOS / Arch Linux + Wayland（niri）+ fontconfig 2.18 下验证，任何使用 fontconfig 的发行版均可参考。
 
-### 🌟 字体配置功能介绍
+## 效果一览
 
-这份配置文件主要实现了以下四个核心功能：
+| 请求 | 结果 |
+|---|---|
+| `sans-serif`（默认界面/网页） | **MiSans** |
+| `serif`（衬线） | **霞鹜臻楷 GB**（LXGW ZhenKai GB）→ 霞鹜文楷 Screen |
+| `monospace`（等宽/终端） | **Maple Mono Normal NF CN**（自带 Nerd Font 图标 + 中文） |
+| 日文内容（`lang=ja`） | Noto Sans CJK **JP** / Noto Serif CJK JP |
+| 韩文内容（`lang=ko`） | Noto Sans CJK **KR** / Noto Serif CJK KR |
+| 台湾繁中（`lang=zh-tw`） | Noto Sans CJK **TC** / LXGW WenKai TC |
+| 香港繁中（`lang=zh-hk`） | Noto Sans CJK **HK** |
+| `Arial`、`Segoe UI`、`Liberation Sans` 等网页字体 | 映射到上面的 sans-serif 偏好链（即 MiSans） |
+| Emoji | Noto Color Emoji |
 
-#### 1. 设定全局默认字体家族 (Fallback 机制)
-通过 `<alias>` 标签，定义了系统在请求三大类基础字体时的首选顺序：
-* **无衬线体 (sans-serif)：** 优先使用小米开源的 **MiSans**，其次是思源黑体 (Source Han Sans CN) 等。适合日常界面阅读。
-* **衬线体 (serif)：** 优先使用具有书写感的 **霞鹜臻楷 (LXGW ZhenKai)** 和 **霞鹜文楷 (LXGW WenKai)**，其次是思源宋体。适合长篇阅读和排版。
-* **等宽字体 (monospace)：** 优先使用支持编程连字和图标的 **Maple Mono NF** 和 **Iosevka Term**。专为终端和写代码优化。
+日文网页的「直、门、关」等汉字会正确显示日文字形，繁中网页显示繁体字形——这就是按语言切换地区字形的意义。
 
-#### 2. 完美解决 CJK 异体字形问题 (多语言字重映射)
-在没有语言环境指定的情况下，Linux 经常会把中文的“门、复”等字显示成日文汉字的字形（字形发虚或笔画错误）。这部分配置通过 `<test name="lang">` 实现了**按语言环境优先加载对应字体**：
-* 简中 (`zh-cn`) 使用 `MiSans`。
-* 繁中 (`zh-tw`, `zh-hk`) 优先使用霞鹜文楷 TC。
-* 日文 (`ja`) 和韩文 (`ko`) 优先使用 Noto Sans CJK 对应的语言版本。
+## 快速使用
 
-#### 3. 禁用宋体 (SimSun) 的点阵效果
-老旧的宋体在较小字号下会使用内置的 Bitmap（点阵/像素）字体，在高清屏幕上边缘会有锯齿，非常难看。配置中 `<edit name="embeddedbitmap" mode="assign"><bool>false</bool></edit>` 强制关闭了宋体的点阵显示，使其边缘平滑（抗锯齿）。
+### 第 1 步：安装字体
 
-#### 4. 强力替换常见商业/缺省字体
-在浏览网页或打开 Windows 传过来的文档时，经常会遇到请求特定字体的情况。通过 `<match target="pattern">` 和 `binding="strong"`，你的配置将它们“劫持”并替换成了你系统里漂亮的高清字体：
-* 把常见的无衬线体（如 `Arial`, `Helvetica`, `微软雅黑`, `黑体`）全部强转为 **MiSans**。
-* 把常见的衬线体（如 `Times New Roman`, `宋体`, `仿宋`）全部强转为 **霞鹜文楷 (LXGW WenKai Screen)**。
-* 把常见的代码字体（如 `Courier New`, `Source Code Pro`）强转为 **Maple Mono Normal NF CN**。
+Arch / CachyOS：
 
----
-
-### 🛠️ 如何测试配置是否成功（完整命令）
-
-在修改或保存了 `~/.config/fontconfig/fonts.conf` 之后，请按照以下步骤使用终端命令进行测试。
-
-#### 第一步：刷新字体缓存
-配置保存后，必须先清除并重建字体缓存才能生效。
 ```bash
-fc-cache -fv
-```
-*(注：这可能需要几秒钟，耐心等待它跑完。)*
+# 官方仓库
+sudo pacman -S --needed otf-misans otf-noto-sans-cjk noto-fonts-emoji
 
-#### 第二步：使用 `fc-match` 命令验证映射
-`fc-match` 是测试 Fontconfig 最核心的命令，它会告诉你系统最终决定用哪个具体的字体文件来响应请求。
-
-**1. 测试默认字体族：**
-```bash
-# 测试无衬线体（应该返回 MiSans）
-fc-match sans-serif
-
-# 测试衬线体（应该返回 LXGW ZhenKai GB 或 LXGW WenKai Screen）
-fc-match serif
-
-# 测试等宽字体（应该返回 Maple Mono Normal NF CN）
-fc-match monospace
+# AUR
+yay -S --needed ttf-lxgw-zhenkai ttf-lxgw-wenkai-screen ttf-maplemononormal-nf-cn
 ```
 
-**2. 测试多语言（CJK）字形分配是否准确：**
+其他发行版可以从这些字体的 GitHub Releases 手动下载，放到 `~/.local/share/fonts/` 后执行 `fc-cache -f`：
+
+| 字体 | 用途 |
+|---|---|
+| [MiSans](https://hyperos.mi.com/font) | 默认无衬线 |
+| [Noto Sans/Serif CJK](https://github.com/notofonts/noto-cjk/releases) | 各地区 CJK 字形 |
+| [LXGW ZhenKai GB（霞鹜臻楷）](https://github.com/lxgw/LxgwZhenKaiGB/releases) | 衬线首选 |
+| [LXGW WenKai（霞鹜文楷）](https://github.com/lxgw/LxgwWenkai/releases) | 衬线回退 / 繁中楷体 |
+| [Maple Mono NF CN](https://github.com/subframe7536/maple-font/releases) | 等宽 |
+| Noto Color Emoji | Emoji |
+
+### 第 2 步：应用配置
+
 ```bash
-# 模拟简体中文环境请求（应该返回 MiSans）
-fc-match sans-serif:lang=zh-cn
+git clone https://github.com/emoeem/fontconfig.git
+cd fontconfig
 
-# 模拟繁体台湾环境请求（应该返回 LXGW WenKai TC 或 Screen）
-fc-match sans-serif:lang=zh-tw
+# 备份已有配置
+mv ~/.config/fontconfig/fonts.conf ~/.config/fontconfig/fonts.conf.bak 2>/dev/null
 
-# 模拟日文环境请求（应该返回 Noto Sans CJK JP）
-fc-match sans-serif:lang=ja
+# 复制（或用软链接，方便以后 git pull 同步更新）
+cp fonts.conf ~/.config/fontconfig/fonts.conf
+# ln -sf "$(pwd)/fonts.conf" ~/.config/fontconfig/fonts.conf
+
+fc-cache -f
 ```
 
-**3. 测试字体强力替换（劫持）是否生效：**
+然后**重启浏览器和正在运行的应用**（fontconfig 的新规则对已运行的程序不生效）。
+
+> 单文件配置，不需要 `conf.d/`。fontconfig 通过 `50-user.conf` 自动读取 `~/.config/fontconfig/fonts.conf`。
+
+### 第 3 步：验证
+
 ```bash
-# 测试 Windows 常见的微软雅黑（应该被劫持返回 MiSans）
-fc-match "Microsoft YaHei"
-fc-match "微软雅黑"
+fc-match sans-serif              # 期望: MiSans
+fc-match serif                   # 期望: LXGW ZhenKai GB
+fc-match monospace               # 期望: Maple Mono Normal NF CN
 
-# 测试英文字体 Arial 和 Helvetica（应该被劫持返回 MiSans）
-fc-match Arial
-fc-match Helvetica
+# 按语言切换（核心功能）
+fc-match 'sans-serif:lang=ja'    # 期望: Noto Sans CJK JP
+fc-match 'sans-serif:lang=ko'    # 期望: Noto Sans CJK KR
+fc-match 'sans-serif:lang=zh-tw' # 期望: Noto Sans CJK TC
+fc-match 'sans-serif:lang=zh-cn' # 期望: MiSans
 
-# 测试宋体（应该被劫持返回 LXGW WenKai Screen）
-fc-match "SimSun"
-fc-match "宋体"
+# 网页字体映射
+fc-match Arial                   # 期望: MiSans
+fc-match 'Segoe UI'              # 期望: MiSans
 
-# 测试常用编程字体（应该被劫持返回 Maple Mono Normal NF CN）
-fc-match "Courier New"
+# Emoji
+fc-match emoji                   # 期望: Noto Color Emoji
 ```
 
-#### 第三步：GUI 与实际软件测试
-命令行测试通过后，代表底层配置已经完全成功。接下来：
-1. **重启你的终端模拟器**（如果界面没有立刻改变）。
-2. **重启浏览器（如 Chrome / Edge / Firefox）**，找一个排版复杂的中文网站（如知乎、B站或随便一个带有 Windows 默认字体的网页），你会发现网页上的“微软雅黑”和“Arial”都已经变成了赏心悦目的 MiSans 和霞鹜文楷。
+打开一个日文网站（如 <https://ja.wikipedia.org>）和一个繁中网站对比汉字字形，效果一目了然。
+
+## 配置是怎么工作的
+
+- **通用族偏好**：用 `match + prepend`（而不是 `alias/prefer`）把 MiSans / 霞鹜臻楷 / Maple Mono 放到 sans-serif / serif / monospace 的最前面，压过发行版自带的偏好列表。
+- **按语言切换地区字形**：通过 `<test name="lang" compare="contains">` 匹配语言。浏览器按页面 `<html lang>`、GTK/Qt 按 `LC_*` 环境变量传入 lang；没有 lang 的请求不受影响，保持简中默认。
+- **网页字体映射**：把 `Arial`、`Segoe UI`、`Liberation Sans/Mono` 等 `assign` 到通用族，让 Windows 风格的网页字体栈统一走 MiSans。
+- **渲染参数**：hinting=slight + 亚像素（rgb）抗锯齿，适合 4K 以下、整数缩放的屏幕。
+- **屏蔽 Nimbus Sans**：这个字体会导致 GitHub 部分页面排版异常，直接 `rejectfont`。
+
+### ⚠️ 关键机制：规则顺序就是优先级
+
+fontconfig **按规则执行顺序排列 prepend 的值：先执行的规则，其字体排得越靠前**（和「prepend 插到最前」的直觉相反）。所以本配置的顺序是：
+
+```
+网页字体映射 → 语言地区规则 → 默认字体规则
+```
+
+语言规则在前，日文/繁中字体才能排到 MiSans 前面；默认规则在后，MiSans 作为回退仍排在发行版偏好之前。修改配置时不要打乱这个顺序，改完可以用下面的命令直观检查最终的 family 列表：
+
+```bash
+fc-pattern --config 'sans-serif:lang=ja' | grep -m1 family
+```
+
+## 自定义
+
+- **换默认无衬线字体**：把默认规则和映射规则里的 `MiSans` 改成你喜欢的字体（如 `HarmonyOS Sans SC`、`Sarasa Gothic SC`）。
+- **想要标准字重（MiSans Regular）**：MiSans 官方 OTF 的字重元数据有误（Regular 被标为 53，正常应为 80），默认请求会匹配到 Medium（偏粗）。本配置保持原样；如果你想要标准 Regular，加入下面的扫描期规则并执行 `fc-cache -f`：
+
+  ```xml
+  <match target="scan">
+    <test name="file" compare="contains">
+      <string>MiSans-Regular</string>
+    </test>
+    <edit name="weight" mode="assign">
+      <const>regular</const>
+    </edit>
+  </match>
+  ```
+
+- **加一种语言**：照抄一段 lang 规则，改语言代码和字体即可，注意放在默认规则**之前**。
+- **衬线想用宋体风格**：把默认衬线规则里的 `Noto Serif CJK SC` 放到第一位。
+
+## 注意事项
+
+- **全局生效**：fontconfig 对所有应用生效。Arial → sans-serif 的映射会让依赖 Arial 度量的文档（如 LibreOffice 排版）产生偏移，介意的话删掉对应的映射规则。
+- **分数缩放**：Wayland 下如果使用分数缩放（如 125%、150%），`rgba=rgb` 亚像素抗锯齿可能出现彩色边缘，把渲染设置里的 `rgba` 改为 `none`（灰度）即可。
+- **HiDPI**：4K 以上屏幕通常建议 hinting 关闭或保持 hintslight + 灰度。
